@@ -4,10 +4,10 @@ schemaVersion: "3"
 kind: mixin
 displayName: "VS Code Insiders"
 description: "Adds standalone VS Code Insiders CLI (code-insiders), global vscode-tunnel launcher, and network allowlist for Remote Tunnel"
-version: "0.2.0"
+version: "0.2.1"
 
 provides:
-  - "vscode-insiders@0.2.0"
+  - "vscode-insiders@0.2.1"
 
 capabilities:
   - type: com.docker.sandbox/network-policy@2
