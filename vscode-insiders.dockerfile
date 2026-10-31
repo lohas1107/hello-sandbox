@@ -21,11 +21,18 @@ RUN set -eux; \
         esac; \
     fi; \
     case "$ARCH" in \
-        amd64) VSCODE_OS="cli-alpine-x64" ;; \
-        arm64) VSCODE_OS="cli-alpine-arm64" ;; \
+        amd64) \
+            VSCODE_OS="cli-alpine-x64"; \
+            MULTIARCH_LIBDIR="/usr/lib/x86_64-linux-gnu" \
+            ;; \
+        arm64) \
+            VSCODE_OS="cli-alpine-arm64"; \
+            MULTIARCH_LIBDIR="/usr/lib/aarch64-linux-gnu" \
+            ;; \
         *) echo "Unsupported TARGETARCH: $ARCH" >&2; exit 1 ;; \
     esac; \
-    mkdir -p /out/usr/local/bin; \
+    mkdir -p /out/usr/local/bin /out/usr/lib64; \
+    ln -s "${MULTIARCH_LIBDIR}/libstdc++.so.6" /out/usr/lib64/libstdc++.so.6; \
     curl -fsSL "https://code.visualstudio.com/sha/download?build=insider&os=${VSCODE_OS}" \
         | tar -xz -C /out/usr/local/bin; \
     chmod +x /out/usr/local/bin/code-insiders; \
@@ -33,6 +40,13 @@ RUN set -eux; \
     printf '%s\n' \
         '#!/bin/sh' \
         'set -eu' \
+        'if [ ! -s /etc/ld.so.cache ] && [ -x /sbin/ldconfig ]; then' \
+        '    if [ "$(id -u)" -eq 0 ]; then' \
+        '        /sbin/ldconfig 2>/dev/null || true' \
+        '    elif command -v sudo >/dev/null 2>&1; then' \
+        '        sudo -n /sbin/ldconfig 2>/dev/null || true' \
+        '    fi' \
+        'fi' \
         'if [ -n "${VSCODE_TUNNEL_NAME:-}" ]; then' \
         '    exec /usr/local/bin/code-insiders tunnel --accept-server-license-terms --name "$VSCODE_TUNNEL_NAME" "$@"' \
         'else' \
