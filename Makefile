@@ -1,23 +1,18 @@
-IMAGE              ?= vscode-insiders-sandbox:latest
-WORKSPACE          ?= $(CURDIR)
-VSCODE_TUNNEL_NAME ?=
+IMAGE     ?= vscode-insiders-sandbox:latest
+AGENT     ?= shell
+WORKSPACE ?= $(CURDIR)
 
-TUNNEL_FLAGS       := --accept-server-license-terms $(if $(VSCODE_TUNNEL_NAME),--name "$(VSCODE_TUNNEL_NAME)",)
-
-.PHONY: help build load-sbx run tunnel
+.PHONY: help build load-sbx run run-image
 
 help:
-	@echo "可用指令："
-	@echo "  make tunnel    在 Sandbox 內啟動 VS Code Insiders Remote Tunnel"
-	@echo "  make build     本地建置 Sandbox 映像檔 ($(IMAGE))"
-	@echo "  make load-sbx  將本地映像檔匯入至 sbx image store"
-	@echo "  make run       使用本地映像檔啟動 Docker Sandbox"
-
-tunnel:
-	code-insiders tunnel $(TUNNEL_FLAGS)
+	@echo "可用宿主機指令："
+	@echo "  make run        使用本地 Kit 目錄 (--kit .) 啟動 Docker Sandbox (進入沙盒後執行 vscode-tunnel)"
+	@echo "  make build      本地建置 Sandbox Kit OCI 映像檔 ($(IMAGE))"
+	@echo "  make load-sbx   將本地 Kit 映像檔匯入至 sbx image store"
+	@echo "  make run-image  使用已建置/匯入的 Kit 映像檔 (--kit $(IMAGE)) 啟動 Docker Sandbox"
 
 build:
-	docker build -t $(IMAGE) .
+	docker buildx build -f spec.yaml -t $(IMAGE) --load .
 
 load-sbx: build
 	@TMP_TAR=$$(mktemp /tmp/vscode-insiders-sandbox.XXXXXX.tar); \
@@ -27,7 +22,14 @@ load-sbx: build
 
 run:
 	@if command -v sbx >/dev/null 2>&1; then \
-		sbx run --pull never -t $(IMAGE) shell $(WORKSPACE); \
+		sbx run --kit $(CURDIR) $(AGENT) $(WORKSPACE); \
 	else \
-		docker sandbox run --template $(IMAGE) shell $(WORKSPACE); \
+		docker sandbox run --kit $(CURDIR) $(AGENT) $(WORKSPACE); \
+	fi
+
+run-image:
+	@if command -v sbx >/dev/null 2>&1; then \
+		sbx run --pull never --kit $(IMAGE) $(AGENT) $(WORKSPACE); \
+	else \
+		docker sandbox run --kit $(IMAGE) $(AGENT) $(WORKSPACE); \
 	fi

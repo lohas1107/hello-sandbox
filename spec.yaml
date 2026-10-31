@@ -1,0 +1,24 @@
+# syntax=docker/sandbox-kit:3
+# yaml-language-server: $schema=https://raw.githubusercontent.com/docker/sandbox-kit-spec/main/schema/kit.schema.json
+schemaVersion: "3"
+kind: mixin
+displayName: "VS Code Insiders Tunnel"
+description: "Adds standalone VS Code Insiders CLI (code-insiders), global vscode-tunnel launcher, and network allowlist for Remote Tunnel"
+version: "0.2.0"
+
+provides:
+  - "vscode-insiders-tunnel@0.2.0"
+
+capabilities:
+  - type: com.docker.sandbox/network-policy@2
+    config:
+      runtime:
+        allow:
+          - "*.tunnels.api.visualstudio.com"
+          - "*.devtunnels.ms"
+          - "update.code.visualstudio.com"
+          - "vscode.download.prss.microsoft.com"
+          - "*.vo.msecnd.net"
+          - "*.blob.core.windows.net"
+          - "github.com"
+          - "login.microsoftonline.com"
