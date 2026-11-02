@@ -1,0 +1,29 @@
+# Docker Sandboxes 本地開發環境設定檔 (sbxenv.yaml)
+#
+# 使用方式（於專案根目錄執行）：
+#   sbx env plan   # 預覽將建立的 Sandbox、掛載與環境設定
+#   sbx env run    # 建立（若尚未存在）並進入 Sandbox
+#   sbx env rm     # 移除此環境對應的 Sandbox
+#
+# 預設以官方 v3 `sbx-kit-shell:1.0.0` 為基底並疊加本地 `./kits/vscode-insiders`（免設定 API Key 即可測試）。
+#
+# 若想改為測試本地 Antigravity Workload + VS Code Insiders Mixin，可將下方替換為：
+#   agent: antigravity
+#   kits:
+#     - ./kits/antigravity
+#     - ./kits/vscode-insiders
+#
+# 若想改用官方 Claude Code v3 Workload + 本地 VS Code Insiders Mixin，可替換為：
+#   agent: sbx-kit-claude
+#   kits:
+#     - source: docker.io/docker/sbx-kit-claude:2.1.314
+#     - ./kits/vscode-insiders
+schemaVersion: "1"
+name: hello-sandbox-dev
+
+agent: sbx-kit-shell
+kits:
+  - source: docker.io/docker/sbx-kit-shell:1.0.0
+  - ./kits/vscode-insiders
+
+workspace: .

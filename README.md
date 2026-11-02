@@ -1,68 +1,133 @@
-# hello-sandbox (VS Code Insiders Docker Sandbox Kit)
+# hello-sandbox (Docker Sandbox Kit v3 Monorepo)
 
-基於 **Docker Sandbox Kit v3 (`kind: mixin`)** 規範打造的輕量級擴充套件（Mixin Kit）。可透過 `--kit` 疊加至 v3 workload Kit（如 `docker.io/docker/sbx-kit-shell`，可再搭配 `claude`、`codex`、`gemini` 等 v3 agent mixin），自動注入跨架構（`linux/amd64`、`linux/arm64`）的 **VS Code Insiders CLI (`code-insiders`)**、全域啟動指令 **`vscode-tunnel`**，以及 Remote Tunnel 所需的宣告式網路白名單。
+基於 **Docker Sandbox Kit v3 (`# syntax=docker/sandbox-kit:3`)** 規範打造的多 Kit / 多 Set 沙盒儲存庫，提供：
 
-## 專案特色
+- **基礎 Kits (`kits/*`)**：獨立發佈、可自由組合的 Mixin 與 Workload Kits（包含 VS Code Insiders Remote Tunnel Mixin 與 Google Antigravity CLI Workload）。
+- **預組合 Kit Sets (`sets/*`, `kind: set`)**：在發佈期自動將 Workload 與 Mixin 以 SHA256 Digest 鎖定合併為單一映像檔，終端使用者只需指定單一 Reference 即可啟動。
+- **本地環境設定檔 ([`sbxenv.yaml`](sbxenv.yaml))**：透過 `sbx env plan` / `sbx env run` 一行指令啟動宣告式開發沙盒。
+- **實驗性 Kits (`experimental/*`)**：無須發佈至 Registry，可直接透過 `git+https://...#ref=main&dir=experimental/<name>` 或本地路徑掛載測試。
+- **兩階段多 Repo 自動發佈 ([`.github/workflows/publish.yml`](.github/workflows/publish.yml))**：推送 `v*` 版本標籤時，自動平行建置多架構 (`linux/amd64`, `linux/arm64`) Kits 並接續合成 Sets 發佈至 Docker Hub。
 
-- **極輕量 Mixin Kit (`FROM scratch`)**：僅打包 `/usr/local/bin/code-insiders` 與 `/usr/local/bin/vscode-tunnel`，不綁死特定基底映像檔，可疊加於 `shell` 或任何 Agent 沙盒。
-- **宣告式網路白名單 (`network-policy@2`)**：於 [`vscode-insiders.yaml`](vscode-insiders.yaml) 自動宣告放行 Microsoft Dev Tunnels、VS Code Server 下載與 GitHub/Microsoft OAuth 驗證網域，在 Docker Sandbox Default (`balanced`) Mode 下無須手動調整網路策略即可連通。
-- **全域指令 `vscode-tunnel`（不依賴工作目錄與 `Makefile`）**：進入沙盒後在任意目錄執行 `vscode-tunnel` 即可啟動 Remote Tunnel，並直接享有 `code-insiders tunnel` 原生 Singleton 防重複啟動與互動式 Attach/Detach 機制。
-- **跨架構支援 (`amd64` / `arm64`)**：自動偵測目標架構，相容於 Linux x86_64 與 Apple Silicon (M 系列) Mac。
-- **GitHub Actions 自動多架構發佈**：透過 Docker Buildx (`# syntax=docker/sandbox-kit:3`) 自動建置 `linux/amd64` 與 `linux/arm64` Kit OCI 映像檔並推送至 `docker.io/<你的帳號>/vscode-insiders-sandbox:latest`。
+---
+
+## 儲存庫結構與發佈目標
+
+```text
+hello-sandbox/
+├── kits/                                       # 獨立發佈的基礎 Kits
+│   ├── vscode-insiders/                        # kind: mixin — VS Code Insiders CLI + vscode-tunnel
+│   │   ├── vscode-insiders.yaml
+│   │   └── vscode-insiders.dockerfile
+│   └── antigravity/                            # kind: workload — Google Antigravity CLI (agy)
+│       ├── antigravity.yaml
+│       └── antigravity.dockerfile
+├── sets/                                       # 預組合發佈的 Kit Sets (kind: set)
+│   ├── shell-vscode-insiders-set/              # Shell Workload + VS Code Insiders Mixin
+│   │   └── shell-vscode-insiders-set.yaml
+│   └── antigravity-vscode-insiders-set/        # Antigravity Workload + VS Code Insiders Mixin
+│       └── antigravity-vscode-insiders-set.yaml
+├── experimental/                               # 免發佈、透過 Git URL 直接引用的實驗性 Kits
+│   └── hello-banner/
+│       └── hello-banner.yaml
+├── sbxenv.yaml                                 # 本地宣告式沙盒環境設定檔
+├── Makefile                                    # 本地驗證、建置與啟動輔助指令
+└── .github/workflows/publish.yml               # 兩階段 Matrix 多架構發佈管線
+```
+
+| 類型 | 目錄位置 | `kind` | Docker Hub 映像檔 (`docker.io/<帳號>/...`) |
+| :--- | :--- | :--- | :--- |
+| **Mixin Kit** | [`kits/vscode-insiders`](kits/vscode-insiders/vscode-insiders.yaml) | `mixin` | `sbx-kit-vscode-insiders` |
+| **Workload Kit** | [`kits/antigravity`](kits/antigravity/antigravity.yaml) | `workload` | `sbx-kit-antigravity` |
+| **Kit Set** | [`sets/shell-vscode-insiders-set`](sets/shell-vscode-insiders-set/shell-vscode-insiders-set.yaml) | `set` | `sbx-kit-shell-vscode-insiders-set` |
+| **Kit Set** | [`sets/antigravity-vscode-insiders-set`](sets/antigravity-vscode-insiders-set/antigravity-vscode-insiders-set.yaml) | `set` | `sbx-kit-antigravity-vscode-insiders-set` |
+| **Experimental** | [`experimental/hello-banner`](experimental/hello-banner/hello-banner.yaml) | `mixin` | *(不發佈，透過 `git+https://` 直接引用)* |
 
 ---
 
 ## 快速開始
 
-### 方式一：直接使用已發佈至 Docker Hub (`docker.io`) 的 Kit 映像檔
+### 方式一：使用預組合 Kit Set（單一映像檔直接啟動）
 
-當 GitHub Actions 完成發佈後，可在**任何專案目錄**下透過 `--kit` 掛載啟動 Sandbox：
-
-> [!IMPORTANT]
-> 本 Kit 是 **v3 mixin**，必須疊加在一個 **v3 workload Kit** 上。內建 agent 名稱（`shell`、`claude`…）不是 v3 Kit，
-> 寫成 `--kit <本 Kit> shell` 會出現 `no kit in the set defines the sandbox itself` 錯誤。
-> 請改用 `docker` org 發佈的 v3 workload，例如 `docker.io/docker/sbx-kit-shell:1.0.0`（`sbx/*` 為 v2，勿混用）。
+當 GitHub Actions 完成發佈後，`sets/*` 已將底層 Workload 與 `sbx-kit-vscode-insiders` 合併為單一 Kit，**不需額外傳遞 `--kit`**：
 
 ```bash
-# 以 v3 shell workload 為底並疊加本 Kit
-sbx run docker.io/docker/sbx-kit-shell:1.0.0 --kit docker.io/<你的帳號>/vscode-insiders-sandbox:latest .
+# 啟動預先合成的 Shell + VS Code Insiders 沙盒
+sbx run docker.io/<你的帳號>/sbx-kit-shell-vscode-insiders-set:latest .
 
-# 僅建立不進入
-sbx create docker.io/docker/sbx-kit-shell:1.0.0 --kit docker.io/<你的帳號>/vscode-insiders-sandbox:latest .
-
-# 疊加於 AI Agent：shell workload + 該 agent 的 v3 mixin + 本 Kit
-sbx run docker.io/docker/sbx-kit-shell:1.0.0 \
-  --kit docker.io/docker/sbx-kit-claude-mixin:2.1.281 \
-  --kit docker.io/<你的帳號>/vscode-insiders-sandbox:latest .
+# 啟動預先合成的 Google Antigravity (agy) + VS Code Insiders 沙盒
+sbx run docker.io/<你的帳號>/sbx-kit-antigravity-vscode-insiders-set:latest .
 ```
 
-### 方式二：本地開發與啟動
+### 方式二：搭配 v3 Agent Workload 自由組合 Mixin Kit
 
-宿主機 [`Makefile`](Makefile) 負責建置與啟動沙盒：
+Docker 官方於 `docker.io/docker/sbx-kit-*` 提供了完整的 v3 Agent Workloads（如 `sbx-kit-shell`、`sbx-kit-claude`、`sbx-kit-codex`），可直接透過 `--kit` 疊加本專案的 Mixin：
 
 ```bash
-# 直接使用本地 Kit 目錄 (--kit .) 啟動 shell 沙盒
+# 1. 官方 v3 Shell Workload + VS Code Insiders Mixin
+sbx run docker.io/docker/sbx-kit-shell:1.0.0 \
+  --kit docker.io/<你的帳號>/sbx-kit-vscode-insiders:latest .
+
+# 2. 官方 v3 Claude Code Workload + VS Code Insiders Mixin
+sbx run docker.io/docker/sbx-kit-claude:2.1.314 \
+  --kit docker.io/<你的帳號>/sbx-kit-vscode-insiders:latest .
+
+# 3. 本專案發佈的 Antigravity Workload + 官方 GitHub CLI Mixin + VS Code Insiders Mixin
+sbx run docker.io/<你的帳號>/sbx-kit-antigravity:latest \
+  --kit docker.io/docker/sbx-kit-gh:latest \
+  --kit docker.io/<你的帳號>/sbx-kit-vscode-insiders:latest .
+```
+
+### 方式三：使用 `sbxenv.yaml` 啟動本地宣告式開發環境
+
+在專案根目錄下直接透過 [`sbxenv.yaml`](sbxenv.yaml) 管理沙盒（不需記憶長串參數）：
+
+```bash
+# 預覽將建立的沙盒配置與掛載
+sbx env plan
+
+# 建立（若尚未存在）並進入沙盒
+sbx env run
+
+# 移除環境沙盒
+sbx env rm
+```
+
+### 方式四：透過 Git URL 直接載入實驗性 Kit（免發佈至 Registry）
+
+放在 [`experimental/`](experimental/hello-banner/hello-banner.yaml) 的 Kit 無須推送至 Docker Hub，可直接透過 `git+https://`（或本地子目錄路徑）掛載：
+
+```bash
+# 直接從 GitHub 儲存庫子目錄拉取並由本地 sbx-kit-builder 自動建置
+sbx run docker.io/docker/sbx-kit-shell:1.0.0 \
+  --kit "git+https://github.com/<你的帳號>/hello-sandbox.git#ref=main&dir=experimental/hello-banner" .
+
+# 或在本地開發時直接指向子目錄路徑（注意：不可寫成 `--kit .`，必須具備有效目錄名稱）
+sbx run docker.io/docker/sbx-kit-shell:1.0.0 \
+  --kit ./experimental/hello-banner .
+```
+
+### 方式五：使用 `Makefile` 本地驗證、建置與啟動
+
+```bash
+# 驗證所有本地 Kits (kits/*) 與實驗性 Kit (experimental/*)
+make validate
+
+# 本地建置所有 Kits (sbx-kit-vscode-insiders:latest, sbx-kit-antigravity:latest)
+make build-all
+
+# 使用本地 kits/vscode-insiders 疊加於官方 sbx-kit-shell:1.0.0 啟動沙盒
 make run
 
-# 若要指定掛載其他工作目錄或搭配特定 Agent：
-make run WORKSPACE=/path/to/your/project AGENT=docker.io/docker/sbx-kit-shell:1.0.0
-```
-
-若想在本地建置 Kit OCI 映像檔並匯入 `sbx` 測試：
-
-```bash
-# 1. 本地建置 Kit 映像檔 (vscode-insiders-sandbox:latest) 並匯入 sbx
-make load-sbx
-
-# 2. 使用已匯入的本地 Kit 映像檔啟動沙盒
-make run-image
+# 使用本地 kits/antigravity workload + kits/vscode-insiders 啟動沙盒
+make run-antigravity
 ```
 
 ---
 
-## 在 Sandbox 內啟動 VS Code Insiders
+## 在 Sandbox 內使用 `agy` 與 `vscode-tunnel`
 
-進入 Sandbox 終端機後（無論位於哪一個工作目錄），直接執行全域指令：
+### 1. 啟動 VS Code Insiders Remote Tunnel
+進入含 `vscode-insiders` 的沙盒終端機後，在任意目錄直接執行：
 
 ```bash
 vscode-tunnel
@@ -78,19 +143,25 @@ VSCODE_TUNNEL_NAME=my-sandbox vscode-tunnel
 vscode-tunnel --name my-sandbox
 ```
 
-> **防重複啟動說明**：`code-insiders tunnel` 內建 Singleton 單例鎖機制。若已在另一個終端機啟動過 Tunnel，再次執行 `vscode-tunnel` 會自動以 Client 模式附著至既有 Tunnel 行程（可按 `Ctrl+C` 安全離開觀看而不中斷背景連線）。
+完成終端機顯示的 GitHub / Microsoft Device Login 授權後，即可透過 **VS Code Insiders 桌面版（Remote - Tunnels 擴充功能）** 或瀏覽器開啟 [https://insiders.vscode.dev](https://insiders.vscode.dev) 連線進入沙盒。
 
-### 連線步驟
-1. 執行 `vscode-tunnel` 後，終端機會顯示一組 GitHub / Microsoft 裝置驗證碼（Device Login Code）與登入網址。
-2. 在瀏覽器完成授權後，即可透過以下任一方式連線進入 Sandbox：
-   - **VS Code Insiders 桌面版**：安裝 **Remote - Tunnels** 擴充功能，點擊左下角遠端連線圖示選擇 **Connect to Tunnel...**。
-   - **瀏覽器網頁版**：直接開啟 [https://insiders.vscode.dev](https://insiders.vscode.dev) 並連線至該 Tunnel。
+### 2. 使用 Google Antigravity CLI (`agy`)
+在 `sbx-kit-antigravity` 或 `sbx-kit-antigravity-vscode-insiders-set` 沙盒中：
+- 預設 Entrypoint 會直接啟動 `agy` 互動式介面。
+- 若在一般 shell 中，可隨時執行 `agy`（或 `antigravity`）、`agy -p "你的指令"`，設定檔位於 `~/.gemini/antigravity-cli/settings.json`。
 
 ---
 
-## 自動發佈至 `docker.io` (GitHub Actions)
+## 自動發佈至 `docker.io`（GitHub Actions 兩階段管線）
 
-本專案已配置 [`.github/workflows/publish.yml`](.github/workflows/publish.yml)，會在推送 `v*` 版本標籤（例如 `v0.2.0`）時，使用 `docker buildx` 與 `vscode-insiders.yaml` 建置 `linux/amd64,linux/arm64` 多架構 Kit OCI 映像檔並推送至 Docker Hub。
+[`.github/workflows/publish.yml`](.github/workflows/publish.yml) 會在推送 `v*` 版本標籤（例如 `v0.3.0`）或手動觸發 `workflow_dispatch` 時執行兩個階段：
+
+1. **Stage 1 (`publish-kits`)**：平行建置 `kits/vscode-insiders` 與 `kits/antigravity` 的 `linux/amd64,linux/arm64` 多架構映像檔（含 SLSA Provenance 與 SBOM），推送至：
+   - `docker.io/<帳號>/sbx-kit-vscode-insiders`
+   - `docker.io/<帳號>/sbx-kit-antigravity`
+2. **Stage 2 (`publish-sets`)**：待 Stage 1 完成後，自動帶入 `registry=docker.io/<帳號>` 與 `kitTag=<版本號>`，將剛發佈的 Kits 以 SHA256 Digest 鎖定合併並推送至：
+   - `docker.io/<帳號>/sbx-kit-shell-vscode-insiders-set`
+   - `docker.io/<帳號>/sbx-kit-antigravity-vscode-insiders-set`
 
 ### 設定步驟
 請至 GitHub Repository 的 **Settings -> Secrets and variables -> Actions** 新增以下兩個 **Repository Secrets**：

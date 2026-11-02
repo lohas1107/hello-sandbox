@@ -1,0 +1,23 @@
+# syntax=docker/sandbox-kit:3
+# yaml-language-server: $schema=https://raw.githubusercontent.com/docker/sandbox-kit-spec/main/schema/kit.schema.json
+schemaVersion: "3"
+kind: set
+displayName: "Shell + VS Code Insiders (Set)"
+description: "Pre-composed v3 Sandbox Set combining the official Shell workload with the VS Code Insiders Remote Tunnel mixin"
+version: "0.3.0"
+
+args:
+  registry:
+    default: "docker.io/docker"
+    pattern: '^[a-z0-9][a-z0-9._/:-]*$'
+    description: "Registry namespace where custom kits are published"
+    buildArg: KIT_REGISTRY
+  kitTag:
+    default: "latest"
+    pattern: '^[A-Za-z0-9._-]+$'
+    description: "Tag of custom kits to compose"
+    buildArg: KIT_TAG
+
+kits:
+  - ref: docker.io/docker/sbx-kit-shell:1.0.0
+  - ref: ${{ kit.args.registry }}/sbx-kit-vscode-insiders:${{ kit.args.kitTag }}

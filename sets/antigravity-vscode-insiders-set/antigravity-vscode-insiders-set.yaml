@@ -1,0 +1,23 @@
+# syntax=docker/sandbox-kit:3
+# yaml-language-server: $schema=https://raw.githubusercontent.com/docker/sandbox-kit-spec/main/schema/kit.schema.json
+schemaVersion: "3"
+kind: set
+displayName: "Google Antigravity + VS Code Insiders (Set)"
+description: "Pre-composed v3 Sandbox Set combining the Google Antigravity CLI (agy) workload with the VS Code Insiders Remote Tunnel mixin"
+version: "0.3.0"
+
+args:
+  registry:
+    default: "docker.io/docker"
+    pattern: '^[a-z0-9][a-z0-9._/:-]*$'
+    description: "Registry namespace where custom kits are published"
+    buildArg: KIT_REGISTRY
+  kitTag:
+    default: "latest"
+    pattern: '^[A-Za-z0-9._-]+$'
+    description: "Tag of custom kits to compose"
+    buildArg: KIT_TAG
+
+kits:
+  - ref: ${{ kit.args.registry }}/sbx-kit-antigravity:${{ kit.args.kitTag }}
+  - ref: ${{ kit.args.registry }}/sbx-kit-vscode-insiders:${{ kit.args.kitTag }}

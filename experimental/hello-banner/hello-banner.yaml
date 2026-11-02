@@ -1,0 +1,16 @@
+# syntax=docker/sandbox-kit:3
+# yaml-language-server: $schema=https://raw.githubusercontent.com/docker/sandbox-kit-spec/main/schema/kit.schema.json
+schemaVersion: "3"
+kind: mixin
+displayName: "Experimental Hello Banner"
+description: "Experimental mixin kit demonstrating direct Git URL consumption without registry publishing"
+version: "0.1.0"
+
+provides:
+  - "hello-banner@0.1.0"
+
+build: |
+  FROM scratch
+  COPY --chmod=0644 <<'EOF' /etc/profile.d/hello-sandbox-banner.sh
+  echo "🚀 Welcome to hello-sandbox (loaded via experimental Git kit)!"
+  EOF

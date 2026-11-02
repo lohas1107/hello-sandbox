@@ -1,0 +1,71 @@
+# syntax=docker/sandbox-kit:3
+# yaml-language-server: $schema=https://raw.githubusercontent.com/docker/sandbox-kit-spec/main/schema/kit.schema.json
+schemaVersion: "3"
+kind: workload
+displayName: "Google Antigravity CLI"
+description: "Google Antigravity CLI (agy) agent workload built on the official v3 shell sandbox base"
+sourceUrl: "https://antigravity.google/docs"
+version: "0.3.0"
+
+provides:
+  - "antigravity@0.3.0"
+
+dockerfile: ./antigravity.dockerfile
+
+capabilities:
+  - type: com.docker.sandbox/sbx@1
+
+  - type: com.docker.sandbox/network-policy@2
+    config:
+      runtime:
+        allow:
+          - "antigravity.google"
+          - "*.antigravity.google"
+          - "antigravity-cli-auto-updater-974169037036.us-central1.run.app"
+          - "storage.googleapis.com"
+          - "accounts.google.com"
+          - "oauth2.googleapis.com"
+          - "www.googleapis.com"
+          - "cloudcode-pa.googleapis.com"
+          - "*.cloudcode-pa.googleapis.com"
+          - "aicode.googleapis.com"
+          - "*.aicode.googleapis.com"
+          - "businessaicode.googleapis.com"
+          - "*.businessaicode.googleapis.com"
+          - "aiplatform.googleapis.com"
+          - "generativelanguage.googleapis.com"
+          - "deb.debian.org"
+          - "dhi.io"
+
+  - type: com.docker.sandbox/lifecycle@1
+    config:
+      install:
+        - command: mkdir -p /home/agent/.gemini/antigravity-cli /home/agent/.gemini/config && chown -R 1000:1000 /home/agent/.gemini
+          user: "0"
+          description: "Ensure ~/.gemini/antigravity-cli exists with agent ownership"
+
+  - type: com.docker.sandbox/agent-sessions@1
+    config:
+      prompt: ["-p", "{{.Prompt}}"]
+
+  - type: com.docker.sandbox/agent-interactive-sessions@1
+    optional: true
+    config:
+      prompt: ["-i", "{{.Prompt}}"]
+      continue: ["--continue"]
+      resume: ["--conversation", "{{.SessionID}}"]
+
+  - type: com.docker.sandbox/agent-context@1
+    optional: true
+    config: &agent-context
+      filename: AGENTS.md
+      directory: /home/agent/.gemini/antigravity-cli
+      content: |
+        # Google Antigravity CLI (agy)
+
+        This sandbox runs Google Antigravity CLI (`agy`) on top of the Docker Sandboxes v3 shell base.
+        Configuration lives in `~/.gemini/antigravity-cli/settings.json`.
+
+  - type: com.docker.sandbox/agent-context@2
+    optional: true
+    config: *agent-context

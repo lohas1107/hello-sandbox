@@ -1,18 +1,29 @@
-name: Publish Multi-Arch Sandbox to Docker Hub
+name: Publish Multi-Arch Kits and Sets to Docker Hub
 
 on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version tag to publish (e.g. 0.3.0)"
+        required: true
+        default: "0.3.0"
 
-env:
-  IMAGE_NAME: vscode-insiders-sandbox
+permissions:
+  contents: read
 
 jobs:
-  build-and-push:
+  publish-kits:
+    name: "Publish Kit (${{ matrix.kit }})"
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        kit:
+          - vscode-insiders
+          - antigravity
 
     steps:
       - name: Checkout repository
@@ -35,20 +46,79 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}
+          images: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/sbx-kit-${{ matrix.kit }}
           tags: |
             type=raw,value=latest
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{version}},value=${{ github.event.inputs.version || github.ref_name }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ github.event.inputs.version || github.ref_name }}
 
       - name: Build and push multi-arch kit (linux/amd64, linux/arm64)
         uses: docker/build-push-action@v6
         with:
-          context: .
-          file: vscode-insiders.yaml
+          context: kits/${{ matrix.kit }}
+          file: kits/${{ matrix.kit }}/${{ matrix.kit }}.yaml
           platforms: linux/amd64,linux/arm64
           push: true
+          provenance: true
+          sbom: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=kit-${{ matrix.kit }}
+          cache-to: type=gha,mode=max,scope=kit-${{ matrix.kit }}
+
+  publish-sets:
+    name: "Publish Set (${{ matrix.set }})"
+    needs: publish-kits
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        set:
+          - shell-vscode-insiders-set
+          - antigravity-vscode-insiders-set
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub (docker.io)
+        uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Resolve release version
+        id: ver
+        run: |
+          RAW="${{ github.event.inputs.version || github.ref_name }}"
+          VERSION="${RAW#v}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Extract Docker metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/sbx-kit-${{ matrix.set }}
+          tags: |
+            type=raw,value=latest
+            type=semver,pattern={{version}},value=${{ github.event.inputs.version || github.ref_name }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ github.event.inputs.version || github.ref_name }}
+
+      - name: Build and push multi-arch set (linux/amd64, linux/arm64)
+        uses: docker/build-push-action@v6
+        with:
+          context: sets/${{ matrix.set }}
+          file: sets/${{ matrix.set }}/${{ matrix.set }}.yaml
+          platforms: linux/amd64,linux/arm64
+          push: true
+          provenance: true
+          sbom: true
+          build-args: |
+            registry=docker.io/${{ secrets.DOCKERHUB_USERNAME }}
+            kitTag=${{ steps.ver.outputs.version }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

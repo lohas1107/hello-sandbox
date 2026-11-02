@@ -4,10 +4,12 @@ schemaVersion: "3"
 kind: mixin
 displayName: "VS Code Insiders"
 description: "Adds standalone VS Code Insiders CLI (code-insiders), global vscode-tunnel launcher, and network allowlist for Remote Tunnel"
-version: "0.2.1"
+version: "0.3.0"
 
 provides:
-  - "vscode-insiders@0.2.1"
+  - "vscode-insiders@0.3.0"
+
+dockerfile: ./vscode-insiders.dockerfile
 
 capabilities:
   - type: com.docker.sandbox/network-policy@2
@@ -22,3 +24,15 @@ capabilities:
           - "*.blob.core.windows.net"
           - "github.com"
           - "login.microsoftonline.com"
+
+  - type: com.docker.sandbox/agent-context@1
+    optional: true
+    config: &agent-context
+      content: |
+        ## VS Code Insiders Remote Tunnel
+        This sandbox includes the VS Code Insiders CLI (`code-insiders`) and the global `vscode-tunnel` launcher.
+        Run `vscode-tunnel` (or `VSCODE_TUNNEL_NAME=my-sandbox vscode-tunnel`) from any directory to expose this sandbox via VS Code Remote Tunnels.
+
+  - type: com.docker.sandbox/agent-context@2
+    optional: true
+    config: *agent-context
