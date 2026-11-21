@@ -1,0 +1,72 @@
+# syntax=docker/sandbox-kit:3
+# yaml-language-server: $schema=https://raw.githubusercontent.com/docker/sandbox-kit-spec/main/schema/kit.schema.json
+schemaVersion: "3"
+kind: mixin
+displayName: "AI Gateway"
+description: "AI Gateway mixin kit providing host-mount@1 directories and network access for Claude, Codex, Copilot, and Gemini"
+version: "0.1.0"
+
+provides:
+  - "ai-gateway@0.1.0"
+
+build: |
+  FROM scratch
+
+capabilities:
+  - type: com.docker.sandbox/host-mount@1
+    config:
+      path: /home/agent/.claude
+      mode: "0700"
+
+  - type: com.docker.sandbox/host-mount@1
+    config:
+      path: /home/agent/.codex
+      mode: "0700"
+
+  - type: com.docker.sandbox/host-mount@1
+    config:
+      path: /home/agent/.copilot
+      mode: "0700"
+
+  - type: com.docker.sandbox/host-mount@1
+    config:
+      path: /home/agent/.gemini
+      mode: "0700"
+
+  - type: com.docker.sandbox/network-policy@2
+    config:
+      runtime:
+        allow:
+          # Claude (Anthropic)
+          - "api.anthropic.com"
+          - "claude.ai"
+          - "console.anthropic.com"
+          # Codex (OpenAI)
+          - "api.openai.com"
+          - "chatgpt.com"
+          - "auth.openai.com"
+          # GitHub Copilot
+          - "api.github.com"
+          - "api.githubcopilot.com"
+          - "copilot-proxy.githubusercontent.com"
+          - "github.com"
+          # Gemini (Google)
+          - "generativelanguage.googleapis.com"
+          - "cloudcode-pa.googleapis.com"
+          - "oauth2.googleapis.com"
+          - "accounts.google.com"
+
+  - type: com.docker.sandbox/agent-context@1
+    optional: true
+    config: &agent-context
+      content: |
+        ## AI Gateway
+        This sandbox includes the AI Gateway mixin kit with `host-mount@1` directories (`0700`) for local AI CLI configurations:
+        - `/home/agent/.claude`
+        - `/home/agent/.codex`
+        - `/home/agent/.copilot`
+        - `/home/agent/.gemini`
+
+  - type: com.docker.sandbox/agent-context@2
+    optional: true
+    config: *agent-context

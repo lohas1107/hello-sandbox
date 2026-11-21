@@ -18,9 +18,11 @@ hello-sandbox/
 │   ├── vscode-insiders/                        # kind: mixin — VS Code Insiders CLI + vscode-tunnel
 │   │   ├── vscode-insiders.yaml
 │   │   └── vscode-insiders.dockerfile
-│   └── antigravity/                            # kind: workload — Google Antigravity CLI (agy)
-│       ├── antigravity.yaml
-│       └── antigravity.dockerfile
+│   ├── antigravity/                            # kind: workload — Google Antigravity CLI (agy)
+│   │   ├── antigravity.yaml
+│   │   └── antigravity.dockerfile
+│   └── ai-gateway/                             # kind: mixin — AI Gateway (host-mount@1 + AI API network-policy@2)
+│       └── ai-gateway.yaml
 ├── sets/                                       # 預組合發佈的 Kit Sets (kind: set)
 │   ├── shell-vscode-insiders-set/              # Shell Workload + VS Code Insiders Mixin
 │   │   └── shell-vscode-insiders-set.yaml
@@ -37,6 +39,7 @@ hello-sandbox/
 | 類型 | 目錄位置 | `kind` | Docker Hub 映像檔 (`docker.io/<帳號>/...`) |
 | :--- | :--- | :--- | :--- |
 | **Mixin Kit** | [`kits/vscode-insiders`](kits/vscode-insiders/vscode-insiders.yaml) | `mixin` | `sbx-kit-vscode-insiders` |
+| **Mixin Kit** | [`kits/ai-gateway`](kits/ai-gateway/ai-gateway.yaml) | `mixin` | `sbx-kit-ai-gateway` |
 | **Workload Kit** | [`kits/antigravity`](kits/antigravity/antigravity.yaml) | `workload` | `sbx-kit-antigravity` |
 | **Kit Set** | [`sets/shell-vscode-insiders-set`](sets/shell-vscode-insiders-set/shell-vscode-insiders-set.yaml) | `set` | `sbx-kit-shell-vscode-insiders-set` |
 | **Kit Set** | [`sets/antigravity-vscode-insiders-set`](sets/antigravity-vscode-insiders-set/antigravity-vscode-insiders-set.yaml) | `set` | `sbx-kit-antigravity-vscode-insiders-set` |
@@ -156,9 +159,11 @@ vscode-tunnel --name my-sandbox
 
 [`.github/workflows/publish.yml`](.github/workflows/publish.yml) 會在推送 `v*` 版本標籤（例如 `v0.3.0`）或手動觸發 `workflow_dispatch` 時執行兩個階段：
 
-1. **Stage 1 (`publish-kits`)**：平行建置 `kits/vscode-insiders` 與 `kits/antigravity` 的 `linux/amd64,linux/arm64` 多架構映像檔（含 SLSA Provenance 與 SBOM），推送至：
+1. **Stage 1 (`publish-kits`)**：平行建置 `kits/vscode-insiders`、`kits/antigravity` 與 `kits/ai-gateway` 的 `linux/amd64,linux/arm64` 多架構映像檔（含 SLSA Provenance 與 SBOM），推送至：
    - `docker.io/<帳號>/sbx-kit-vscode-insiders`
    - `docker.io/<帳號>/sbx-kit-antigravity`
+   - `docker.io/<帳號>/sbx-kit-ai-gateway`
+   *(手動觸發 `workflow_dispatch` 時需明確輸入 `version`，並可透過 `kit` 參數選擇只發佈單一 Kit 或 `all`。)*
 2. **Stage 2 (`publish-sets`)**：待 Stage 1 完成後，自動帶入 `registry=docker.io/<帳號>` 與 `kitTag=<版本號>`，將剛發佈的 Kits 以 SHA256 Digest 鎖定合併並推送至：
    - `docker.io/<帳號>/sbx-kit-shell-vscode-insiders-set`
    - `docker.io/<帳號>/sbx-kit-antigravity-vscode-insiders-set`

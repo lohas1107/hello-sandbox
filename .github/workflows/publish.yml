@@ -7,9 +7,18 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version tag to publish (e.g. 0.3.0)"
+        description: "Version tag to publish (e.g. 0.4.0)"
         required: true
-        default: "0.3.0"
+      kit:
+        description: "Target kit to publish (or 'all' for all kits and sets)"
+        type: choice
+        required: true
+        default: "all"
+        options:
+          - all
+          - vscode-insiders
+          - antigravity
+          - ai-gateway
 
 permissions:
   contents: read
@@ -24,18 +33,28 @@ jobs:
         kit:
           - vscode-insiders
           - antigravity
+          - ai-gateway
 
     steps:
+      - name: Skip unselected kit
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.kit != 'all' && inputs.kit != matrix.kit }}
+        run: |
+          echo "Skipping ${{ matrix.kit }} (selected: ${{ inputs.kit }})"
+
       - name: Checkout repository
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.kit == 'all' || inputs.kit == matrix.kit }}
         uses: actions/checkout@v4
 
       - name: Set up QEMU
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.kit == 'all' || inputs.kit == matrix.kit }}
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.kit == 'all' || inputs.kit == matrix.kit }}
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to Docker Hub (docker.io)
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.kit == 'all' || inputs.kit == matrix.kit }}
         uses: docker/login-action@v3
         with:
           registry: docker.io
@@ -43,6 +62,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Extract Docker metadata (tags, labels)
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.kit == 'all' || inputs.kit == matrix.kit }}
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -53,6 +73,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}},value=${{ github.event.inputs.version || github.ref_name }}
 
       - name: Build and push multi-arch kit (linux/amd64, linux/arm64)
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.kit == 'all' || inputs.kit == matrix.kit }}
         uses: docker/build-push-action@v6
         with:
           context: kits/${{ matrix.kit }}
@@ -69,6 +90,7 @@ jobs:
   publish-sets:
     name: "Publish Set (${{ matrix.set }})"
     needs: publish-kits
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.kit == 'all' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false

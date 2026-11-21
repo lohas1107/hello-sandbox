@@ -1,4 +1,4 @@
-KITS      ?= vscode-insiders antigravity
+KITS      ?= vscode-insiders antigravity ai-gateway
 SETS      ?= shell-vscode-insiders-set antigravity-vscode-insiders-set
 KIT       ?= vscode-insiders
 TAG       ?= latest
