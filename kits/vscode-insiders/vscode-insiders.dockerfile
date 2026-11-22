@@ -10,8 +10,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gzip \
     && rm -rf /var/lib/apt/lists/*
 
+ARG VSCODE_INSIDERS_VERSION=1.148.0
+ARG VSCODE_INSIDERS_COMMIT=""
+
 # 自動偵測架構 (支援 BUILDKIT TARGETARCH 或執行期 uname -m) 並安裝 code-insiders CLI 與全域 vscode-tunnel 啟動指令
 RUN set -eux; \
+    echo "Installing VS Code Insiders CLI (${VSCODE_INSIDERS_VERSION})"; \
     ARCH="${TARGETARCH:-}"; \
     if [ -z "$ARCH" ]; then \
         case "$(uname -m)" in \
@@ -33,7 +37,12 @@ RUN set -eux; \
     esac; \
     mkdir -p /out/usr/local/bin /out/usr/lib64; \
     ln -s "${MULTIARCH_LIBDIR}/libstdc++.so.6" /out/usr/lib64/libstdc++.so.6; \
-    curl -fsSL "https://code.visualstudio.com/sha/download?build=insider&os=${VSCODE_OS}" \
+    if [ -n "${VSCODE_INSIDERS_COMMIT}" ]; then \
+        DOWNLOAD_URL="https://update.code.visualstudio.com/commit:${VSCODE_INSIDERS_COMMIT}/${VSCODE_OS}/insider"; \
+    else \
+        DOWNLOAD_URL="https://code.visualstudio.com/sha/download?build=insider&os=${VSCODE_OS}"; \
+    fi; \
+    curl -fsSL "${DOWNLOAD_URL}" \
         | tar -xz -C /out/usr/local/bin; \
     chmod +x /out/usr/local/bin/code-insiders; \
     /out/usr/local/bin/code-insiders --version; \

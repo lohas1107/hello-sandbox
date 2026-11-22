@@ -1,0 +1,99 @@
+name: Check VS Code Insiders CLI Version
+
+on:
+  schedule:
+    # Run weekly on Mondays at 06:00 UTC
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check-update:
+    name: "Check VS Code Insiders CLI Update"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check latest VS Code Insiders CLI version
+        id: check
+        run: |
+          set -euo pipefail
+
+          DOCKERFILE="kits/vscode-insiders/vscode-insiders.dockerfile"
+          KIT_YAML="kits/vscode-insiders/vscode-insiders.yaml"
+
+          RAW_VERSION="$(curl -fsSL "https://update.code.visualstudio.com/api/update/cli-alpine-x64/insider/latest" | jq -r '.productVersion // empty')"
+          if [ -z "${RAW_VERSION}" ]; then
+            echo "::error::Failed to fetch productVersion from VS Code Insiders update API"
+            exit 1
+          fi
+
+          LATEST_VERSION="${RAW_VERSION%-insider}"
+          CURRENT_VERSION="$(sed -nE 's/^ARG[[:space:]]+VSCODE_INSIDERS_VERSION="?([^"[:space:]]+)"?.*$/\1/p' "${DOCKERFILE}" | head -n 1)"
+
+          echo "Current version: ${CURRENT_VERSION:-<unset>}"
+          echo "Latest version:  ${LATEST_VERSION} (raw: ${RAW_VERSION})"
+
+          echo "current_version=${CURRENT_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "latest_version=${LATEST_VERSION}" >> "$GITHUB_OUTPUT"
+
+          if [ "${LATEST_VERSION}" != "${CURRENT_VERSION}" ]; then
+            CURRENT_KIT_VERSION="$(sed -nE 's/^version:[[:space:]]*"?([0-9]+\.[0-9]+\.[0-9]+)"?.*$/\1/p' "${KIT_YAML}" | head -n 1)"
+            if [ -z "${CURRENT_KIT_VERSION}" ]; then
+              echo "::error::Failed to parse kit version from ${KIT_YAML}"
+              exit 1
+            fi
+
+            IFS='.' read -r MAJOR MINOR PATCH <<< "${CURRENT_KIT_VERSION}"
+            NEXT_KIT_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
+
+            echo "Update available: ${CURRENT_VERSION:-<unset>} -> ${LATEST_VERSION}"
+            echo "Bumping kit version: ${CURRENT_KIT_VERSION} -> ${NEXT_KIT_VERSION}"
+
+            echo "update_available=true" >> "$GITHUB_OUTPUT"
+            echo "current_kit_version=${CURRENT_KIT_VERSION}" >> "$GITHUB_OUTPUT"
+            echo "next_kit_version=${NEXT_KIT_VERSION}" >> "$GITHUB_OUTPUT"
+          else
+            echo "Already up to date."
+            echo "update_available=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Update Dockerfile and kit manifest
+        if: ${{ steps.check.outputs.update_available == 'true' }}
+        env:
+          LATEST_VERSION: ${{ steps.check.outputs.latest_version }}
+          NEXT_KIT_VERSION: ${{ steps.check.outputs.next_kit_version }}
+        run: |
+          set -euo pipefail
+
+          DOCKERFILE="kits/vscode-insiders/vscode-insiders.dockerfile"
+          KIT_YAML="kits/vscode-insiders/vscode-insiders.yaml"
+
+          sed -i -E "s|^ARG[[:space:]]+VSCODE_INSIDERS_VERSION=.*$|ARG VSCODE_INSIDERS_VERSION=${LATEST_VERSION}|" "${DOCKERFILE}"
+          sed -i -E "s|^version:[[:space:]]*\"?[0-9]+\.[0-9]+\.[0-9]+\"?$|version: \"${NEXT_KIT_VERSION}\"|" "${KIT_YAML}"
+          sed -i -E "s|(vscode-insiders@)[0-9]+\.[0-9]+\.[0-9]+|\1${NEXT_KIT_VERSION}|" "${KIT_YAML}"
+
+          git diff -- "${DOCKERFILE}" "${KIT_YAML}"
+
+      - name: Open Pull Request
+        if: ${{ steps.check.outputs.update_available == 'true' }}
+        uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: "chore(vscode-insiders): bump VS Code Insiders CLI to ${{ steps.check.outputs.latest_version }}"
+          branch: chore/bump-vscode-insiders
+          delete-branch: true
+          title: "chore(vscode-insiders): bump VS Code Insiders CLI to ${{ steps.check.outputs.latest_version }}"
+          body: |
+            Automated update for the `vscode-insiders` kit.
+
+            ### Changes
+            - **VS Code Insiders CLI**: `${{ steps.check.outputs.current_version }}` -> `${{ steps.check.outputs.latest_version }}` (`kits/vscode-insiders/vscode-insiders.dockerfile`)
+            - **Kit version**: `${{ steps.check.outputs.current_kit_version }}` -> `${{ steps.check.outputs.next_kit_version }}` (`kits/vscode-insiders/vscode-insiders.yaml`)
+
+            ### Next Steps
+            Merging this PR and pushing a new `v*` release tag (or running `publish.yml` via `workflow_dispatch`) will trigger `.github/workflows/publish.yml` to build and publish the updated multi-arch kit and sets to Docker Hub.
