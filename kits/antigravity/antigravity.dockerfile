@@ -27,6 +27,21 @@ RUN set -eux; \
     rm -rf "$TMP_DIR"; \
     /usr/local/bin/agy --version
 
+RUN set -eux; \
+    usermod -s /bin/bash agent; \
+    touch /etc/shells; \
+    for sh in /bin/sh /bin/bash /usr/bin/bash; do \
+        grep -qxF "$sh" /etc/shells || echo "$sh" >> /etc/shells; \
+    done; \
+    for f in .bashrc .profile .bash_logout; do \
+        if [ -f "/etc/skel/$f" ]; then \
+            cp -a "/etc/skel/$f" "/home/agent/$f"; \
+            chown agent:agent "/home/agent/$f"; \
+        fi; \
+    done
+
+ENV SHELL=/bin/bash
+
 USER agent
 WORKDIR /home/agent/workspace
 ENTRYPOINT ["agy", "--dangerously-skip-permissions"]
