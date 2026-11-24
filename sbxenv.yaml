@@ -5,7 +5,7 @@
 #   sbx env run    # 建立（若尚未存在）並進入 Sandbox
 #   sbx env rm     # 移除此環境對應的 Sandbox
 #
-# 預設以官方 v3 `sbx-kit-shell:1.0.0` 為基底並疊加本地 `./kits/vscode-insiders`（免設定 API Key 即可測試）。
+# 預設以官方 v3 `sbx/shell:latest` 為基底並疊加本地 `./kits/vscode-insiders`（免設定 API Key 即可測試）。
 #
 # 若想改為測試本地 Antigravity Workload + VS Code Insiders Mixin，可將下方替換為：
 #   agent: antigravity
@@ -16,14 +16,14 @@
 # 若想改用官方 Claude Code v3 Workload + 本地 VS Code Insiders Mixin，可替換為：
 #   agent: sbx-kit-claude
 #   kits:
-#     - source: docker.io/docker/sbx-kit-claude:2.1.314
+#     - source: docker.io/sbx/claude:latest
 #     - ./kits/vscode-insiders
 schemaVersion: "1"
 name: hello-sandbox-dev
 
 agent: sbx-kit-shell
 kits:
-  - source: docker.io/docker/sbx-kit-shell:1.0.0
+  - source: docker.io/sbx/shell:latest
   - ./kits/vscode-insiders
 
 workspace: .

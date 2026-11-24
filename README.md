@@ -63,20 +63,20 @@ sbx run docker.io/<你的帳號>/sbx-kit-antigravity-vscode-insiders-set:latest 
 
 ### 方式二：搭配 v3 Agent Workload 自由組合 Mixin Kit
 
-Docker 官方於 `docker.io/docker/sbx-kit-*` 提供了完整的 v3 Agent Workloads（如 `sbx-kit-shell`、`sbx-kit-claude`、`sbx-kit-codex`），可直接透過 `--kit` 疊加本專案的 Mixin：
+Docker 官方於 `docker.io/sbx/*` 提供了完整的 v3 Agent Workloads（如 `shell`、`claude`、`codex`），可直接透過 `--kit` 疊加本專案的 Mixin：
 
 ```bash
 # 1. 官方 v3 Shell Workload + VS Code Insiders Mixin
-sbx run docker.io/docker/sbx-kit-shell:1.0.0 \
+sbx run docker.io/sbx/shell:latest \
   --kit docker.io/<你的帳號>/sbx-kit-vscode-insiders:latest .
 
 # 2. 官方 v3 Claude Code Workload + VS Code Insiders Mixin
-sbx run docker.io/docker/sbx-kit-claude:2.1.314 \
+sbx run docker.io/sbx/claude:latest \
   --kit docker.io/<你的帳號>/sbx-kit-vscode-insiders:latest .
 
 # 3. 本專案發佈的 Antigravity Workload + 官方 GitHub CLI Mixin + VS Code Insiders Mixin
 sbx run docker.io/<你的帳號>/sbx-kit-antigravity:latest \
-  --kit docker.io/docker/sbx-kit-gh:latest \
+  --kit docker.io/sbx/gh:latest \
   --kit docker.io/<你的帳號>/sbx-kit-vscode-insiders:latest .
 ```
 
@@ -101,11 +101,11 @@ sbx env rm
 
 ```bash
 # 直接從 GitHub 儲存庫子目錄拉取並由本地 sbx-kit-builder 自動建置
-sbx run docker.io/docker/sbx-kit-shell:1.0.0 \
+sbx run docker.io/sbx/shell:latest \
   --kit "git+https://github.com/<你的帳號>/hello-sandbox.git#ref=main&dir=experimental/hello-banner" .
 
 # 或在本地開發時直接指向子目錄路徑（注意：不可寫成 `--kit .`，必須具備有效目錄名稱）
-sbx run docker.io/docker/sbx-kit-shell:1.0.0 \
+sbx run docker.io/sbx/shell:latest \
   --kit ./experimental/hello-banner .
 ```
 
@@ -118,7 +118,7 @@ make validate
 # 本地建置所有 Kits (sbx-kit-vscode-insiders:latest, sbx-kit-antigravity:latest)
 make build-all
 
-# 使用本地 kits/vscode-insiders 疊加於官方 sbx-kit-shell:1.0.0 啟動沙盒
+# 使用本地 kits/vscode-insiders 疊加於官方 sbx/shell:latest 啟動沙盒
 make run
 
 # 使用本地 kits/antigravity workload + kits/vscode-insiders 啟動沙盒

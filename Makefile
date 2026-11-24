@@ -2,7 +2,7 @@ KITS      ?= vscode-insiders antigravity ai-gateway
 SETS      ?= shell-vscode-insiders-set antigravity-vscode-insiders-set
 KIT       ?= vscode-insiders
 TAG       ?= latest
-AGENT     ?= docker.io/docker/sbx-kit-shell:1.0.0
+AGENT     ?= docker.io/sbx/shell:latest
 WORKSPACE ?= $(CURDIR)
 
 .PHONY: help validate build build-all env-plan env-run run run-antigravity

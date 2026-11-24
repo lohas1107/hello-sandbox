@@ -19,5 +19,5 @@ args:
     buildArg: KIT_TAG
 
 kits:
-  - ref: docker.io/docker/sbx-kit-shell:1.0.0
+  - ref: docker.io/sbx/shell:latest
   - ref: ${{ kit.args.registry }}/sbx-kit-vscode-insiders:${{ kit.args.kitTag }}

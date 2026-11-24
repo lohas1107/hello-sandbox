@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM docker.io/docker/sbx-kit-shell:1.0.0
+FROM docker.io/sbx/shell:latest
 
 ARG TARGETARCH
 
@@ -22,10 +22,12 @@ RUN set -eux; \
     curl -fsSL "$URL" -o "$TMP_DIR/agy.tar.gz"; \
     echo "${SHA512}  $TMP_DIR/agy.tar.gz" | sha512sum -c -; \
     tar -xzf "$TMP_DIR/agy.tar.gz" -C "$TMP_DIR" antigravity; \
-    install -m 0755 "$TMP_DIR/antigravity" /usr/local/bin/agy; \
-    ln -sfn /usr/local/bin/agy /usr/local/bin/antigravity; \
+    install -d -m 0755 -o agent -g agent /home/agent/.local /home/agent/.local/bin; \
+    install -m 0755 -o agent -g agent "$TMP_DIR/antigravity" /home/agent/.local/bin/agy; \
+    ln -sfn /home/agent/.local/bin/agy /home/agent/.local/bin/antigravity; \
+    chown -h agent:agent /home/agent/.local/bin/antigravity; \
     rm -rf "$TMP_DIR"; \
-    /usr/local/bin/agy --version
+    /home/agent/.local/bin/agy --version
 
 RUN set -eux; \
     usermod -s /bin/bash agent; \
